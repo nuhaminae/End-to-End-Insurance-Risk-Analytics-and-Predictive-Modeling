@@ -14,9 +14,8 @@ This project provides a comprehensive workflow for analysing insurance risk data
 - [Data](#data)
 - [Modelling Approach](#modelling-approach)
 - [Results & Visualisations](#results--visualisations)
-- [Contributing](#contributing)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
+- [Contribution](#contribution)
+- [Completion](#completion)
 
 ---
 
@@ -113,7 +112,7 @@ This project assumes access to a structured insurance dataset, containing featur
 ## Results & Visualisations
 
 All major findings, performance metrics, and plots are presented within the relevant notebooks. These include:
-- Summary statistics and data visualisation charts
+- Some summary statistics and data visualisation charts are saved in `plot imgaes/` folder
 
 ---
 
