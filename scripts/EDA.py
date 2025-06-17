@@ -185,6 +185,7 @@ class EDA_processor:
                                                         , format='ISO8601', errors='coerce')
             numerical_cols = self.df.select_dtypes(include=np.number).columns
             categorical_cols = self.df.select_dtypes(include=['object','bool']).columns
+            categorical_cols = [col for col in categorical_cols if col not in ['Make', 'Model']]
             
             #plot histograms for numerical columns
             print('Plotting Histograms for Numerical Columns:')
