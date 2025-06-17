@@ -2,25 +2,25 @@ import pandas as pd
 import numpy as np
 import os
 from IPython.display import display
-#import ipywidgets as widgets
 import matplotlib.pyplot as plt
 import seaborn as sns
-import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 class EDA_processor:
-    def __init__(self, processed_df_path=None, plot_folder=None):
+    def __init__(self, processed_df_path=None, plot_folder=None, output_folder=None):
         """
         Initialise the EDA procecssor class with the necessary parameters.
         
         Args:
             processed_df_path (str): The path to the processed DataFrame.
             plot_folder (str): The folder to save plots.
+            output_folder (str): The path to the output folder
         """
         self.df = None #Initalises df to None
         self.processed_df_path = processed_df_path
         self.plot_folder = plot_folder if plot_folder else os.path.join(os.getcwd(),
                                                                         'plot images')
+        self.output_folder = output_folder if output_folder else os.path.join(os.getcwd(),
+                                                                            'data')
         
         #create plot folder if it doesnt exist                                                              
         if not os.path.exists(self.plot_folder):
@@ -28,9 +28,9 @@ class EDA_processor:
         
         #load df if df path is provided
         if self.processed_df_path:
-            self.load_processed_df()
+            self.load_processed_df_and_impute()
     
-    def load_processed_df(self):
+    def load_processed_df_and_impute(self):
         """
         Loads the processed DataFrame from the specified path.
         Assumes the file is in CSV format.
@@ -42,15 +42,47 @@ class EDA_processor:
             try:
                 self.df = pd.read_csv(self.processed_df_path)
                 print(f'DataFrame loaded successfully from {relative_processed_df_path}')
+                
+                #perform imputation after loading data
+                numerical_cols = self.df.select_dtypes(include=np.number).columns
+                for col in numerical_cols:
+                    non_zero_values = self.df[self.df[col] != 0][col]
+                    if not non_zero_values.empty: #ensure non-zero values exist before computing median
+                        median_non_zero_claims = non_zero_values.median()
+                        self.df[col] = self.df[col].replace(0, median_non_zero_claims)
+                        #print (f'\nNumerical columns with zeros are imputed.')
+                    else:
+                        print(f'\nDataFrame contains only zeros; skipping imputation.')
+
+                #save imputed df
+                ##create output folder if it doesn't exist
+                if not os.path.exists(self.output_folder):
+                    os.makedirs(self.output_folder)
+
+                df_name = os.path.join(self.output_folder, 'imputed_and_processed_insurance_data.csv')
+
+                ##calculate the relative path
+                current_directory = os.getcwd()
+                relative_path = os.path.relpath(df_name, current_directory)
+
+                ##save processed data to CSV
+                self.df.to_csv(df_name, index=False)
+                print(f'\nImputed DataFrame Saved to: {relative_path}')
+
+                print('\nDataFrame Head:')
+                out_head=self.df.head()
+                display (out_head)
+            
             except Exception as e:
                 print(f'Error loading DataFrame from {relative_processed_df_path}: {e}')
                 self.df = None 
         elif self.processed_df_path:
-            print(f'Error: File not found at {relative_processed_df_path}')
+            print(f'\nError: File not found at {relative_processed_df_path}')
             self.df = None
         else:
-            print('No DataFrame path provided during initialization.')
+            print('\nNo DataFrame path provided during initialization.')
             self.df = None
+        return self.df
     
     def save_plot(self, plot_name):
         """
