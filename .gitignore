@@ -1,5 +1,3 @@
 .insurvenv
-\data
-.csv
+MachineLearningRating_v3.txt
 __pycache__
-/processed_insurance_data.csv
