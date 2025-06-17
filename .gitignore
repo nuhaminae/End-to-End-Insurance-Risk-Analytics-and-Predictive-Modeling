@@ -1,3 +1,9 @@
 .insurvenv
+<<<<<<< EDA
+\data
+.csv
+__pycache__
+=======
 __pycache__
 MachineLearningRating_v3.txt
+>>>>>>> main
