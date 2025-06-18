@@ -28,9 +28,9 @@ class EDA_processor:
         
         #load df if df path is provided
         if self.processed_df_path:
-            self.load_processed_df_and_impute()
+            self.load_processed_df()
     
-    def load_processed_df_and_impute(self):
+    def load_processed_df(self):
         """
         Loads the processed DataFrame from the specified path.
         Assumes the file is in CSV format.
@@ -42,37 +42,7 @@ class EDA_processor:
             try:
                 self.df = pd.read_csv(self.processed_df_path)
                 print(f'DataFrame loaded successfully from {relative_processed_df_path}')
-                
-                #perform imputation after loading data
-                numerical_cols = self.df.select_dtypes(include=np.number).columns
-                for col in numerical_cols:
-                    non_zero_values = self.df[self.df[col] != 0][col]
-                    if not non_zero_values.empty: #ensure non-zero values exist before computing median
-                        median_non_zero_claims = non_zero_values.median()
-                        self.df[col] = self.df[col].replace(0, median_non_zero_claims)
-                        #print (f'\nNumerical columns with zeros are imputed.')
-                    else:
-                        print(f'\nDataFrame contains only zeros; skipping imputation.')
 
-                #save imputed df
-                ##create output folder if it doesn't exist
-                if not os.path.exists(self.output_folder):
-                    os.makedirs(self.output_folder)
-
-                df_name = os.path.join(self.output_folder, 'imputed_and_processed_insurance_data.csv')
-
-                ##calculate the relative path
-                current_directory = os.getcwd()
-                relative_path = os.path.relpath(df_name, current_directory)
-
-                ##save processed data to CSV
-                self.df.to_csv(df_name, index=False)
-                print(f'\nImputed DataFrame Saved to: {relative_path}')
-
-                print('\nDataFrame Head:')
-                out_head=self.df.head()
-                display (out_head)
-            
             except Exception as e:
                 print(f'Error loading DataFrame from {relative_processed_df_path}: {e}')
                 self.df = None 
@@ -84,6 +54,55 @@ class EDA_processor:
             self.df = None
         return self.df
     
+    def impute_process_save (self):
+                
+        #perform imputation on approporaite numerical columns                
+        if self.df is not None:
+            impute_cols = ['Cubiccapacity', 'Kilowatts', 'CapitalOutstanding', 
+                            'SumInsured', 'CalculatedPremiumPerTerm', 
+                            'TotalPremium', 'TotalClaims']
+            for col in impute_cols:
+                non_zero_values = self.df[self.df[col] != 0][col]
+                if not non_zero_values.empty: #ensure non-zero values exist before computing median
+                        median_non_zero_value = non_zero_values.median()
+                        self.df[col] = self.df[col].replace(0, median_non_zero_value)
+                else:
+                    print(f'\nColumn {col} contains only zeros; skipping imputation.')
+
+            #improve 'Gender' column based on 'Title' column
+            if 'Gender' in self.df.columns and 'Title' in self.df.columns:
+                self.df.loc[self.df['Title'] == 'Mr', 'Gender'] = 'Male'
+                self.df.loc[self.df['Title'] == 'Mrs', 'Gender'] = 'Female'
+                self.df.loc[self.df['Title'] == 'Ms', 'Gender'] = 'Female'
+                self.df.loc[self.df['Title'] == 'Miss', 'Gender'] = 'Female'
+                self.df.drop(self.df.loc[self.df['Gender'] == 'Not Specified'].index, inplace=True)
+            else:
+                ('\n Caution: "Gender" column data not improved. Investigate further.')
+
+
+            #save imputed and transformed df
+            ##create output folder if it doesn't exist
+            if not os.path.exists(self.output_folder):
+                os.makedirs(self.output_folder)
+
+            df_name = os.path.join(self.output_folder, 'imputed_and_processed_insurance_data.csv')
+
+            ##calculate the relative path
+            current_directory = os.getcwd()
+            relative_path = os.path.relpath(df_name, current_directory)
+
+            ##save processed data to CSV
+            self.df.to_csv(df_name, index=False)
+            print(f'\nImputed DataFrame Saved to: {relative_path}')
+
+            print('\nDataFrame Head:')
+            out_head=self.df.head()
+            display (out_head)
+
+        else:
+            print('DataFrame is not loaded. Please run load_processed_df first.')
+            
+                
     def save_plot(self, plot_name):
         """
         Saves the current matplotlib plot to the designated plot folder.
@@ -138,7 +157,7 @@ class EDA_processor:
             display(loss_ratio_by_gender[['LossRatio']])
         
         else:
-            print('DataFrame is not loaded. Please run load_df first.')
+            print('DataFrame is not loaded. Please run load_processed_df first.')
     
     def temporal_trends (self):
         """
@@ -148,7 +167,8 @@ class EDA_processor:
             if 'TransactionMonth' in self.df.columns:
                 
                 #analyse claim frequency per month
-                #self.df['TransactionMonth'] = self.df['TransactionMonth'].dt.to_period('M')
+                self.df['TransactionMonth'] = pd.to_datetime(self.df['TransactionMonth'])
+                self.df['TransactionMonth'] = self.df['TransactionMonth'].dt.to_period('M')
                 claim_frequency = self.df.groupby('TransactionMonth').size()
                 print('Claim Frequency per month (head):')
                 display(claim_frequency.head(10))
@@ -159,7 +179,7 @@ class EDA_processor:
                 display(claim_severity.head(10))
                 
                 #visualise temporal trends
-                plt.figure(figsize=(15, 10))
+                plt.figure(figsize=(17, 7))
                 plt.subplot(1, 2, 1)
                 claim_frequency.plot()
                 plt.title('Claim Frequency per Month') 
@@ -185,7 +205,7 @@ class EDA_processor:
             else:
                 print("\nNo 'TransactionMonth' column found. Please inspect data for a suitable date column.")
         else:
-            print('DataFrame is not loaded. Please run load_df first.')
+            print('DataFrame is not loaded. Please run load_processed_df first.')
     
     def make_model_claim (self):
         
@@ -201,7 +221,7 @@ class EDA_processor:
             display(avg_claim_by_model.head(10))
             
         else:
-            print('DataFrame is not loaded. Please run load_df first.')
+            print('DataFrame is not loaded. Please run load_processed_df first.')
     
     def univariate_analysis_visualiser(self):
         """
@@ -210,20 +230,20 @@ class EDA_processor:
         """
         
         if self.df is not None:           
-            #convert the 'TransactionMonth' column and 'RegistrationYear' again to datetime
-            self.df['TransactionMonth'] = pd.to_datetime(self.df['TransactionMonth']
-                                                        , format='ISO8601', errors='coerce')
-            self.df['RegistrationYear'] = pd.to_datetime(self.df['RegistrationYear']
-                                                        , format='ISO8601', errors='coerce')
-            numerical_cols = self.df.select_dtypes(include=np.number).columns
-            categorical_cols = self.df.select_dtypes(include=['object','bool']).columns
-            categorical_cols = [col for col in categorical_cols if col not in ['Make', 'Model']]
+            #identify numerical and categorical columns to plot             
+            numerical_cols = ['Cubiccapacity', 'Kilowatts', 'CapitalOutstanding', 
+                            'SumInsured', 'CalculatedPremiumPerTerm', 'TotalPremium', 'TotalClaims']
+            #exclude numerical cols and datatime dtype cols and categorical cols with large nunique value
+            categorical_cols = [col for col in self.df.columns if col not in numerical_cols and col 
+                                not in ['TransactionMonth','RegistrationYear', 
+                                        'UnderwrittenCoverID', 'PolicyID', 'PostalCode', 'Mmcode',
+                                        'Make', 'Model']]
             
             #plot histograms for numerical columns
             print('Plotting Histograms for Numerical Columns:')
             for col in numerical_cols:
-                plt.figure(figsize=(10, 10))
-                sns.histplot(data=self.df, x=col, color='red', kde=True)
+                plt.figure(figsize=(15, 7))
+                sns.histplot(data=self.df, x=col, color='red', kde=True, bins=20)
                 plt.title(f'Distribution of {col} Column')
                 plt.xlabel(col, labelpad=5) #adds distance between lable ticks
                 plt.ylabel('Frequency')
@@ -245,7 +265,7 @@ class EDA_processor:
                 #filter columns more than single unique values and plot
                 if self.df[col].nunique() >1:
                     if self.df[col].nunique() <=3: 
-                        plt.figure(figsize=(10, 10))
+                        plt.figure(figsize=(10, 7))
                         ax = self.df[col].value_counts().plot(kind='bar',
                                                                 color=sns.color_palette('viridis',
                                                                                         len(self.df[col].unique()))) 
@@ -268,7 +288,7 @@ class EDA_processor:
                         plt.close()
                     
                     elif self.df[col].nunique() >3 and self.df[col].nunique() <=12: 
-                        plt.figure(figsize=(10, 10))
+                        plt.figure(figsize=(15, 7))
                         ax = self.df[col].value_counts().plot(kind='bar',color=sns.color_palette('viridis',
                                                                                                 len(self.df[col].unique()))) 
                         plt.title(f'Distribution of {col} Column')
@@ -290,7 +310,7 @@ class EDA_processor:
                         plt.close()
                     
                     else:
-                        plt.figure(figsize=(10, 10))
+                        plt.figure(figsize=(15, 7))
                         ax = self.df[col].value_counts().plot(kind='bar',color=sns.color_palette('viridis',
                                                                                                 len(self.df[col].unique()))) 
                         plt.title(f'Distribution of {col} Column')
@@ -312,7 +332,7 @@ class EDA_processor:
                         plt.close()
         
         else:
-            print('DataFrame is not loaded. Please run load_df first.')
+            print('DataFrame is not loaded. Please run load_processed_df first.')
     
     def bivariate_analysis_and_visualiser(self):
         """
@@ -345,15 +365,16 @@ class EDA_processor:
                 display(monthly_postalcode_agg.head())
                 
                 #scatter plot of ClaimsChange vs PremiumChange, colored by PostalCode
-                plt.figure(figsize=(10, 10))
+                plt.figure(figsize=(15, 7))
                 sns.scatterplot(data=monthly_postalcode_agg, 
                                 x='PremiumChange', y='ClaimsChange', 
                                 hue='PostalCode', alpha=0.6)
                 plt.title('Monthly Claims Change vs Monthly Premium Change by PostalCode')
                 plt.xlabel('Monthly Premium Change')
                 plt.ylabel('Monthly Claims Change')
-                plt.legend(title='PostalCode', bbox_to_anchor=(1.05, 1), loc='upper left')
-                plt.grid(True)
+                #plt.legend(title='PostalCode', bbox_to_anchor=(1.05, 1), loc='upper left')
+                plt.legend(title='PostalCode', loc='upper left')
+                plt.grid()
                 plt.tight_layout()
                 
                 #select plot directory and plot name to save plot
@@ -371,8 +392,8 @@ class EDA_processor:
                 display(correlation_matrix)
                 
                 #heatmap for the overall correlation matrix
-                plt.figure(figsize=(5, 5))
-                sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=.5)
+                plt.figure(figsize=(15, 7))
+                sns.heatmap(correlation_matrix, annot=True)
                 plt.title('Correlation Heatmap for Monthly Premium and Claims Change')
                 #plt.tight_layout()
                 
@@ -388,9 +409,9 @@ class EDA_processor:
             else:
                 print("\nRequired columns ('TransactionMonth', 'PostalCode', 'TotalPremium', 'TotalClaims') not found in DataFrame.")
         else:
-            print('\nDataFrame is not loaded. Please run load_df first.')
+            print('\nDataFrame is not loaded. Please run load_processed_df first.')
     
-    def geographic_trends_analysis_and_visualiser(self, plot_folder):
+    def geographic_trends_analysis_and_visualiser(self):
         """
         Compares trends in insurance cover type, premium, auto make, etc. over provinces.
         """
@@ -399,7 +420,7 @@ class EDA_processor:
                 
                 #compare Cover Type distribution by Province
                 print('\nDistribution of Cover Type by Province:')
-                plt.figure(figsize=(10, 10))
+                plt.figure(figsize=(15, 7))
                 sns.countplot(data=self.df, x='Province', hue='Province')
                 plt.title('Distribution of Insurance Cover Type by Province')
                 plt.xlabel('Province')
@@ -422,7 +443,7 @@ class EDA_processor:
                 avg_premium_by_province = self.df.groupby('Province')['TotalPremium'].mean().sort_values(ascending=False)
                 display(avg_premium_by_province)
                 
-                plt.figure(figsize=(10, 10))
+                plt.figure(figsize=(15, 7))
                 avg_premium_by_province.plot(kind='bar')
                 avg_premium_by_province.plot(kind='bar', 
                                                         color=sns.color_palette('viridis', 
@@ -450,13 +471,13 @@ class EDA_processor:
                 #filter the DataFrame to include only the top makes
                 df_top_makes = self.df[self.df['Make'].isin(top_makes)]
                 
-                plt.figure(figsize=(10, 10))
+                plt.figure(figsize=(15, 7))
                 sns.countplot(data=df_top_makes, x='Province', hue='Make')
                 plt.title('Distribution of Top Auto Makes by Province')
                 plt.xlabel('Province')
                 plt.ylabel('Count')
                 plt.xticks(rotation=45, ha='right')
-                plt.legend(title='Make', bbox_to_anchor=(1.05, 1), loc='upper left')
+                plt.legend(title='Make', loc='upper right')
                 plt.grid()
                 plt.tight_layout()
                 
@@ -472,19 +493,21 @@ class EDA_processor:
             else:
                 print("The 'Province' column is not found in the DataFrame.")
         else:
-            print('DataFrame is not loaded. Please run load_df first.')
+            print('DataFrame is not loaded. Please run load_processed_df first.')
     
-    def outlier_detection_boxplots(self,plot_folder):
+    def outlier_detection_boxplots(self):
         """
         Uses box plots to detect outliers in numerical data.
         """
         
         if self.df is not None:
-            numerical_cols = self.df.select_dtypes(include=np.number).columns
+            numerical_cols = ['Cubiccapacity', 'Kilowatts', 'CapitalOutstanding', 
+                                'SumInsured', 'CalculatedPremiumPerTerm', 
+                                'TotalPremium', 'TotalClaims']
             
             print('\nPlotting Box Plots for Outlier Detection in Numerical Columns:')
             for col in numerical_cols:
-                plt.figure(figsize=(5, 5))
+                plt.figure(figsize=(7, 7))
                 sns.boxplot(y=self.df[col], orientation='vertical')
                 plt.title(f'Box Plot of {col} for Outlier Detection')
                 plt.ylabel(col)
@@ -501,4 +524,4 @@ class EDA_processor:
                 plt.close()    
         
         else:
-            print('DataFrame is not loaded. Please run load_df first.')
+            print('DataFrame is not loaded. Please run load_processed_df first.')
