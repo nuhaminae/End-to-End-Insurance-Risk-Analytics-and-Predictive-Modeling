@@ -1,23 +1,26 @@
 import pandas as pd
 import numpy as np
 import os
+from IPython.display import display
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import chi2_contingency, ttest_ind, f_oneway
 
 class ABHypothesis_testing:
-    def __init__(self, df_path=None, plot_folder=None):
+    def __init__(self, df_path=None, output_folder=None, plot_folder=None):
         """
         Initialise the A/B hypothesis testing processor with the necessary parameters.
         
         Args:
             df_path (str): The path to the processed CSV DataFrame.
+            output_folder (str): The path to the output folder
             plot_folder (str): The folder to save plots.
         """
         self.df = None  #initialise df to None
         self.df_path = df_path
+        self.output_folder = output_folder if output_folder else os.path.join(os.getcwd(), 'data')
         self.plot_folder = plot_folder if plot_folder else os.path.join(os.getcwd(), '/plot images/hypothesis')
-        
+    
         #create plot folder if it does not exist                                                              
         if not os.path.exists(self.plot_folder):
             os.makedirs(self.plot_folder)
@@ -84,11 +87,79 @@ class ABHypothesis_testing:
             
             self.df['Margin'] = self.df['TotalPremium'] - self.df['TotalClaims']
             print("\nDerived metrics: 'HasClaim', 'ClaimSeverity', and 'Margin' have been added to the DataFrame.")
+
+            #save new df with new derived metrics
+            ##create output folder if it doesn't exist
+            if not os.path.exists(self.output_folder):
+                os.makedirs(self.output_folder)
+
+            df_name = os.path.join(self.output_folder, 'processed_data_with_metrics.csv')
+
+            ##calculate the relative path
+            current_directory = os.getcwd()
+            relative_path = os.path.relpath(df_name, current_directory)
+
+            ##save processed data to CSV
+            self.df.to_csv(df_name, index=False)
+            print(f'\nNew DataFrame Saved to: {relative_path}')
+
+            print('\nDataFrame Head:')
+            out_head=self.df.head()
+            display (out_head)        
+        
         else:
             print('DataFrame not loaded yet.')
         
         return self.df
     
+    def impute_process_save (self):
+                
+        #perform imputation on approporaite numerical columns                
+        if self.df is not None:
+            impute_cols = ['Cubiccapacity', 'Kilowatts', 'CapitalOutstanding', 
+                            'SumInsured', 'CalculatedPremiumPerTerm', 
+                            'TotalPremium', 'TotalClaims']
+            for col in impute_cols:
+                non_zero_values = self.df[self.df[col] != 0][col]
+                if not non_zero_values.empty: #ensure non-zero values exist before computing median
+                        median_non_zero_value = non_zero_values.median()
+                        self.df[col] = self.df[col].replace(0, median_non_zero_value)
+                else:
+                    print(f'\nColumn {col} contains only zeros; skipping imputation.')
+
+            #improve 'Gender' column based on 'Title' column
+            if 'Gender' in self.df.columns and 'Title' in self.df.columns:
+                self.df.loc[self.df['Title'] == 'Mr', 'Gender'] = 'Male'
+                self.df.loc[self.df['Title'] == 'Mrs', 'Gender'] = 'Female'
+                self.df.loc[self.df['Title'] == 'Ms', 'Gender'] = 'Female'
+                self.df.loc[self.df['Title'] == 'Miss', 'Gender'] = 'Female'
+                self.df.drop(self.df.loc[self.df['Gender'] == 'Not Specified'].index, inplace=True)
+            else:
+                ('\n Caution: "Gender" column data not improved. Investigate further.')
+
+
+            #save imputed and transformed df
+            ##create output folder if it doesn't exist
+            if not os.path.exists(self.output_folder):
+                os.makedirs(self.output_folder)
+
+            df_name = os.path.join(self.output_folder, 'imputed_and_processed_insurance_data.csv')
+
+            ##calculate the relative path
+            current_directory = os.getcwd()
+            relative_path = os.path.relpath(df_name, current_directory)
+
+            ##save processed data to CSV
+            self.df.to_csv(df_name, index=False)
+            print(f'\nImputed DataFrame Saved to: {relative_path}')
+
+            print('\nDataFrame Head:')
+            out_head=self.df.head()
+            display (out_head)
+
+        else:
+            print('DataFrame is not loaded. Please run load_processed_df first.')
+
     
     def plot_distribution(self, column, hue=None, plot_type='box'):
         """
