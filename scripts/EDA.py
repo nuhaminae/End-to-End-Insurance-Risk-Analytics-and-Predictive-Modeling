@@ -265,7 +265,7 @@ class EDA_processor:
                 #filter columns more than single unique values and plot
                 if self.df[col].nunique() >1:
                     if self.df[col].nunique() <=3: 
-                        plt.figure(figsize=(10, 7))
+                        plt.figure(figsize=(15, 7))
                         ax = self.df[col].value_counts().plot(kind='bar',
                                                                 color=sns.color_palette('viridis',
                                                                                         len(self.df[col].unique()))) 
